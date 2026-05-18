@@ -6,17 +6,17 @@
 <title>GeM Bid Explorer</title>
 <style>
   :root {
-    --bg: #0f1115;
-    --panel: #161a22;
-    --panel-2: #1d222c;
-    --border: #2a2f3a;
-    --text: #e6e9ef;
-    --muted: #8b93a7;
-    --accent: #4f8cff;
-    --accent-2: #3b6fd1;
-    --ok: #3ecf8e;
-    --bad: #ef4444;
-    --warn: #f5a524;
+    --bg: #f6f7fa;
+    --panel: #ffffff;
+    --panel-2: #f1f3f7;
+    --border: #e3e6ed;
+    --text: #1a1d24;
+    --muted: #66707f;
+    --accent: #2563eb;
+    --accent-2: #1d4ed8;
+    --ok: #059669;
+    --bad: #dc2626;
+    --warn: #b45309;
   }
   * { box-sizing: border-box; }
   body {
@@ -116,9 +116,9 @@
     font-family: inherit;
   }
   button:hover { background: var(--accent-2); }
-  button:disabled { background: #444; cursor: not-allowed; opacity: 0.6; }
+  button:disabled { background: #c4c8d1; cursor: not-allowed; opacity: 0.7; }
   button.secondary { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); }
-  button.secondary:hover { background: #262c38; }
+  button.secondary:hover { background: #e6e9ef; }
   .meta { color: var(--muted); font-size: 12px; }
 
   table {
@@ -148,7 +148,7 @@
     white-space: nowrap;
   }
   th .arrow { color: var(--accent); margin-left: 4px; }
-  tbody tr:hover { background: rgba(79, 140, 255, 0.05); }
+  tbody tr:hover { background: rgba(37, 99, 235, 0.04); }
   td.bid-num { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; }
   td.cat { max-width: 360px; }
   .badge {
@@ -160,9 +160,9 @@
     background: var(--panel-2);
     color: var(--muted);
   }
-  .badge.goods { background: rgba(62, 207, 142, 0.15); color: var(--ok); }
-  .badge.service { background: rgba(79, 140, 255, 0.15); color: var(--accent); }
-  .badge.ra { background: rgba(245, 165, 36, 0.15); color: var(--warn); }
+  .badge.goods { background: rgba(5, 150, 105, 0.12); color: var(--ok); }
+  .badge.service { background: rgba(37, 99, 235, 0.12); color: var(--accent); }
+  .badge.ra { background: rgba(180, 83, 9, 0.14); color: var(--warn); }
 
   .empty {
     padding: 60px 20px;
@@ -178,9 +178,9 @@
   }
   .pager .info { color: var(--muted); font-size: 12px; }
   .err {
-    background: rgba(239, 68, 68, 0.1);
-    border: 1px solid rgba(239, 68, 68, 0.3);
-    color: #fca5a5;
+    background: rgba(220, 38, 38, 0.08);
+    border: 1px solid rgba(220, 38, 38, 0.25);
+    color: #991b1b;
     padding: 10px 14px;
     border-radius: 6px;
     margin-bottom: 14px;
@@ -202,16 +202,21 @@
 
 <main>
   <details id="setup">
-    <summary>Setup (one-time)</summary>
+    <summary>Setup — load session tokens</summary>
     <div class="setup-body">
+      <p style="color:var(--muted);margin:0 0 10px;">GeM's session cookies are HttpOnly — JavaScript can't read them. The only reliable way to load tokens is to copy a real request from DevTools' Network tab. It takes ~30 seconds:</p>
       <ol>
-        <li>Run the proxy on your machine: <code>python3 gem_proxy.py</code></li>
-        <li>Drag this button to your bookmarks bar:
-          <br /><a id="bookmarkletLink" class="bookmarklet" href="#">GeM → Proxy</a>
-        </li>
-        <li>Open <a href="https://bidplus.gem.gov.in/all-bids" target="_blank">bidplus.gem.gov.in/all-bids</a>, log in if needed, then click the bookmarklet. You should see a green toast.</li>
-        <li>Come back here — the dot in the top right should turn green. Tokens last a few hours; re-click the bookmarklet when they expire.</li>
+        <li>Open <a href="https://bidplus.gem.gov.in/all-bids" target="_blank">bidplus.gem.gov.in/all-bids</a> and log in if needed.</li>
+        <li>On that page, open DevTools (<code>Cmd+Option+I</code>) → click the <b>Network</b> tab.</li>
+        <li>In the filter box at the top of the Network tab, type <code>all-bids-data</code>.</li>
+        <li>In the GeM page, change any filter or click "Search" — this fires a real API request. You'll see a row appear in Network.</li>
+        <li>Right-click that <code>all-bids-data</code> row → <b>Copy</b> → <b>Copy as cURL</b> (on macOS Chrome it may say "Copy as cURL (bash)").</li>
+        <li>Paste it below and click <b>Load tokens</b>:</li>
       </ol>
+      <textarea id="curlArea" rows="4" placeholder="curl 'https://bidplus.gem.gov.in/all-bids-data?csrt=...' -H 'Cookie: ...' -H 'X-Security-CSRF-Token: ...' ..."
+        style="width:100%;background:var(--panel-2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:10px;font-family:ui-monospace,monospace;font-size:11px;line-height:1.4;"></textarea>
+      <div style="margin-top:10px;"><button id="curlSave">Load tokens</button> <span id="curlStatus" class="meta"></span></div>
+      <p style="color:var(--muted);font-size:12px;margin-top:14px;">Tokens last a few hours. When they expire (Fetch returns 401/403), repeat the same paste with a fresh cURL.</p>
     </div>
   </details>
 
@@ -223,30 +228,41 @@
         <input id="f_search" placeholder="e.g. laptop, vehicle…" />
       </div>
       <div>
+        <label>Mode</label>
+        <select id="f_bidstatus">
+          <option value="ongoing">Ongoing Bids/RA</option>
+          <option value="bidrastatus">Bid/RA Status (awarded etc.)</option>
+        </select>
+      </div>
+      <div id="f_statusWrap" style="display:none;">
         <label>Status</label>
         <select id="f_status">
           <option value="">All</option>
-          <option value="bid_to_open">Live (not yet opened)</option>
-          <option value="bid_under_evaluation">Under evaluation</option>
-          <option value="bid_awarded">Awarded</option>
-          <option value="bid_cancelled">Cancelled</option>
+          <option value="tech_evaluated">Technical Evaluated</option>
+          <option value="fin_evaluated">Financial Evaluated</option>
+          <option value="bid_awarded">Bid/RA Awarded</option>
         </select>
       </div>
       <div>
-        <label>Type</label>
+        <label>By Bid Type</label>
         <select id="f_type">
-          <option value="all">All</option>
-          <option value="goods">Goods</option>
-          <option value="service">Services</option>
+          <option value="all">All Bid/RAs</option>
+          <option value="goods">Product Bid/RAs</option>
+          <option value="service">Service Bid/RAs</option>
+          <option value="bid2ra">Bid To RAs</option>
+          <option value="productcustom">Product Custom Bid/RAs</option>
+          <option value="boq">BOQ Bids</option>
+          <option value="ratecontract">Rate Contract Bids</option>
+          <option value="global">Global Tender</option>
+          <option value="limited">Limited Tender</option>
+          <option value="single">Single Tender</option>
         </select>
       </div>
       <div>
-        <label>Bid / RA</label>
-        <select id="f_bidstatus">
-          <option value="bidrastatus">Both</option>
-          <option value="bidstatus">Bid only</option>
-          <option value="rastatus">RA only</option>
-        </select>
+        <label>&nbsp;</label>
+        <label style="display:flex;align-items:center;gap:6px;color:var(--text);font-size:13px;cursor:pointer;padding:8px 0;">
+          <input id="f_highValue" type="checkbox" style="width:auto;" /> High Value Bids only
+        </label>
       </div>
       <div>
         <label>End date from</label>
@@ -266,8 +282,12 @@
         </select>
       </div>
       <div>
-        <label>Max pages (10/page)</label>
-        <input id="f_maxPages" type="number" min="1" max="100" value="5" />
+        <label>Start page</label>
+        <input id="f_startPage" type="number" min="1" value="1" />
+      </div>
+      <div>
+        <label>End page</label>
+        <input id="f_endPage" type="number" min="1" value="5" />
       </div>
     </div>
     <div class="actions">
@@ -337,6 +357,7 @@ const state = {
   page: 0,
   sortKey: 'endDate',
   sortDir: 'desc',
+  csrt: '',           // session csrt for view-result links
 };
 
 // ---------- proxy status ----------
@@ -351,6 +372,7 @@ async function pingProxy() {
     text.textContent = 'Proxy connected';
     if (j.has_tokens) {
       const t = await (await fetch(`${PROXY}/get-tokens`)).json();
+      state.csrt = t.csrt || '';
       tokenText.textContent = `· tokens loaded ${t.saved_at ? '(' + t.saved_at + ')' : ''}`;
     } else {
       dot.className = 'dot warn';
@@ -365,44 +387,62 @@ async function pingProxy() {
 setInterval(pingProxy, 4000);
 pingProxy();
 
-// ---------- bookmarklet ----------
-const bookmarkletCode = `(function(){
-  try {
-    var cookies = document.cookie;
-    var csrf = window.csrf_token || window.csrfToken || '';
-    if (!csrf) {
-      var m = cookies.match(/csrf_gem_cookie=([^;]+)/);
-      if (m) csrf = decodeURIComponent(m[1]);
-    }
-    if (!csrf || csrf.length < 40) {
-      var scripts = document.getElementsByTagName('script');
-      for (var i = 0; i < scripts.length; i++) {
-        var s = scripts[i].textContent || '';
-        var hex = s.match(/[a-f0-9]{80,120}/i);
-        if (hex) { csrf = hex[0]; break; }
-        var quoted = s.match(/['"]([a-f0-9]{80,120})['"]/i);
-        if (quoted) { csrf = quoted[1]; break; }
-      }
-    }
-    var url = 'http://127.0.0.1:7432/save-tokens';
-    fetch(url, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({cookies: cookies, csrf: csrf})
-    }).then(function(r){ return r.json(); }).then(function(j){
-      var t = document.createElement('div');
-      t.textContent = '✓ Tokens sent to proxy (csrf ' + csrf.length + ' chars)';
-      t.style.cssText = 'position:fixed;top:20px;right:20px;background:#3ecf8e;color:#000;padding:12px 18px;border-radius:6px;font:600 14px sans-serif;z-index:99999;box-shadow:0 4px 12px rgba(0,0,0,0.3)';
-      document.body.appendChild(t);
-      setTimeout(function(){ t.remove(); }, 3000);
-    }).catch(function(e){
-      alert('Could not reach proxy at 127.0.0.1:7432. Is it running? (' + e + ')');
-    });
-  } catch(e) { alert('Bookmarklet error: ' + e); }
-})();`;
+// ---------- cURL parsing ----------
+// Parse a "Copy as cURL" command (Chrome/Firefox/Safari format) and extract
+// the Cookie + X-Security-CSRF-Token headers. DevTools cURL exports include
+// HttpOnly cookies, which JS can't read directly — this is the only reliable
+// source for GeM session tokens.
+function parseCurl(curl) {
+  const s = curl.replace(/\\\r?\n/g, ' ').replace(/\s+/g, ' ');
+  const headers = {};
+  const headerRe = /(?:-H|--header)\s+(['"])([^:]+):\s*([\s\S]*?)\1/g;
+  let m;
+  while ((m = headerRe.exec(s)) !== null) {
+    headers[m[2].trim().toLowerCase()] = m[3].trim();
+  }
+  const cookieFlag = s.match(/(?:-b|--cookie)\s+(['"])([\s\S]*?)\1/);
+  if (cookieFlag && !headers['cookie']) headers['cookie'] = cookieFlag[2];
 
-document.getElementById('bookmarkletLink').href =
-  'javascript:' + encodeURIComponent(bookmarkletCode.replace(/\s+/g, ' '));
+  // Extract csrt from the URL query (it's the same per-session token used in view-result links).
+  let csrt = '';
+  const urlMatch = s.match(/curl\s+(['"])([^'"]+)\1/);
+  if (urlMatch) {
+    const qs = urlMatch[2].split('?')[1] || '';
+    const csrtMatch = qs.match(/(?:^|&)csrt=([^&]+)/);
+    if (csrtMatch) csrt = decodeURIComponent(csrtMatch[1]);
+  }
+
+  return {
+    cookies: headers['cookie'] || '',
+    csrf: headers['x-security-csrf-token'] || '',
+    csrt,
+  };
+}
+
+document.getElementById('curlSave').addEventListener('click', async () => {
+  const ta = document.getElementById('curlArea');
+  const st = document.getElementById('curlStatus');
+  const raw = ta.value.trim();
+  if (!raw) { st.textContent = 'Paste the cURL first.'; return; }
+  const { cookies, csrf, csrt } = parseCurl(raw);
+  if (!cookies) { st.textContent = '✗ No Cookie header found in cURL.'; return; }
+  if (!csrf) { st.textContent = '✗ No X-Security-CSRF-Token header found in cURL.'; return; }
+  if (csrf.length < 40) { st.textContent = `✗ CSRF token too short (${csrf.length} chars) — wrong header?`; return; }
+  try {
+    const r = await fetch(`${PROXY}/save-tokens`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cookies, csrf, csrt }),
+    });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+    state.csrt = csrt;
+    st.innerHTML = `<span style="color:var(--ok)">✓ Loaded · csrf ${csrf.length} · cookies ${cookies.length} · csrt ${csrt ? csrt.length : 0}</span>`;
+    pingProxy();
+  } catch (e) {
+    st.textContent = `✗ ${e.message}`;
+  }
+});
 
 // ---------- helpers ----------
 function g(doc, key, fallback = '') {
@@ -412,16 +452,26 @@ function g(doc, key, fallback = '') {
 }
 
 function normalize(doc) {
+  const bbt = Number(g(doc, 'b_bid_type', 0)); // 1 = bid, 2 = RA
+  const isRa = bbt === 2;
+  const ownNumber = g(doc, 'b_bid_number');
+  const ownId = g(doc, 'b_id');
+  const parentNumber = g(doc, 'b_bid_number_parent');
+  const parentId = g(doc, 'b_id_parent');
   return {
-    bidNumber: g(doc, 'b_bid_number'),
+    // Primary bid number always shows the B/... bid (use parent when row is an RA record).
+    bidNumber: isRa ? (parentNumber || '') : ownNumber,
+    raNumber: isRa ? ownNumber : '',
+    bidId: isRa ? (parentId || '') : ownId,
+    raId: isRa ? ownId : '',
     category: g(doc, 'bd_category_name') || g(doc, 'b_category_name'),
     quantity: Number(g(doc, 'b_total_quantity', 0)) || 0,
     type: Number(g(doc, 'b_type', 0)),       // 0 = goods, 1 = service
-    bidType: Number(g(doc, 'b_bid_type', 0)),// 1 = bid, 2 = RA
+    bidType: bbt,
     ministry: g(doc, 'ba_official_details_minName'),
     department: g(doc, 'ba_official_details_deptName'),
     endDate: g(doc, 'final_end_date_sort'),
-    bidId: g(doc, 'b_id'),
+    highValue: !!g(doc, 'is_high_value'),
   };
 }
 
@@ -457,34 +507,38 @@ async function fetchBids() {
   const statusEl = document.getElementById('fetchStatus');
   btn.disabled = true;
 
-  const typeVal = document.getElementById('f_type').value; // all/goods/service
+  const mode = document.getElementById('f_bidstatus').value;
   const filters = {
     searchBid: document.getElementById('f_search').value.trim(),
-    byStatus: document.getElementById('f_status').value,
-    byType: typeVal,
-    bidStatusType: document.getElementById('f_bidstatus').value,
+    byStatus: mode === 'bidrastatus' ? document.getElementById('f_status').value : '',
+    byType: document.getElementById('f_type').value,
+    bidStatusType: mode,
+    highBidValue: document.getElementById('f_highValue').checked ? 'highValue' : '',
     dateFrom: document.getElementById('f_dateFrom').value,
     dateTo: document.getElementById('f_dateTo').value,
     sort: document.getElementById('f_sort').value,
   };
-  const maxPages = Math.max(1, Math.min(100, Number(document.getElementById('f_maxPages').value) || 5));
+  const startPage = Math.max(1, Number(document.getElementById('f_startPage').value) || 1);
+  const endPage = Math.max(startPage, Number(document.getElementById('f_endPage').value) || startPage);
 
   const all = [];
   try {
-    for (let p = 0; p < maxPages; p++) {
-      statusEl.textContent = `Fetching page ${p + 1}/${maxPages}…`;
+    for (let p = startPage; p <= endPage; p++) {
+      statusEl.textContent = `Fetching page ${p} (of ${startPage}–${endPage})…`;
       const r = await fetch(`${PROXY}/gem-proxy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ filters, start: p * 10 }),
+        body: JSON.stringify({ filters, start: (p - 1) * 10 }),
       });
       const j = await r.json();
       if (!r.ok) {
-        throw new Error(j.error || `HTTP ${r.status}`);
+        const msg = j.error || `HTTP ${r.status}`;
+        const detail = j.body ? ` — GeM said: ${String(j.body).slice(0, 300)}` : '';
+        throw new Error(msg + detail);
       }
       const docs = j?.response?.response?.docs || [];
       if (docs.length === 0) {
-        statusEl.textContent = `Done — no more results after page ${p}`;
+        statusEl.textContent = `Done — no more results at page ${p}`;
         break;
       }
       all.push(...docs.map(normalize));
@@ -567,7 +621,18 @@ const COLS = [
   { key: 'ministry',  label: 'Ministry' },
   { key: 'department',label: 'Department' },
   { key: 'endDate',   label: 'End Date' },
+  { key: '_view',     label: 'View',     sortable: false },
 ];
+
+function viewLinks(b) {
+  const csrt = encodeURIComponent(state.csrt || '');
+  const mk = (id, label) =>
+    `<a href="https://bidplus.gem.gov.in/bidding/bid/getBidResultView/${encodeURIComponent(id)}?csrt=${csrt}" target="_blank" rel="noopener" class="badge" style="background:rgba(37,99,235,0.12);color:var(--accent);font-weight:600;margin-right:4px;display:inline-block;margin-bottom:2px;">${label}</a>`;
+  const parts = [];
+  if (b.bidId) parts.push(mk(b.bidId, 'View Bid'));
+  if (b.raId)  parts.push(mk(b.raId, 'View RA'));
+  return parts.join('');
+}
 
 function sortRows(rows) {
   const k = state.sortKey;
@@ -606,15 +671,21 @@ function render() {
   const slice = sorted.slice(state.page * PAGE_SIZE, (state.page + 1) * PAGE_SIZE);
 
   const head = COLS.map(c => {
-    const arrow = state.sortKey === c.key
+    const sortable = c.sortable !== false;
+    const arrow = sortable && state.sortKey === c.key
       ? `<span class="arrow">${state.sortDir === 'asc' ? '↑' : '↓'}</span>`
       : '';
-    return `<th data-key="${c.key}">${c.label}${arrow}</th>`;
+    const attrs = sortable ? `data-key="${c.key}"` : `style="cursor:default"`;
+    return `<th ${attrs}>${c.label}${arrow}</th>`;
   }).join('');
 
   const body = slice.map(b => `
     <tr>
-      <td class="bid-num">${escapeHtml(b.bidNumber)}</td>
+      <td class="bid-num">
+        ${escapeHtml(b.bidNumber)}
+        ${b.raNumber ? `<div style="opacity:.7;font-size:11px;margin-top:2px;">&rarr; ${escapeHtml(b.raNumber)}</div>` : ''}
+        ${b.highValue ? `<div style="margin-top:3px;"><span class="badge" style="background:rgba(180,83,9,0.14);color:var(--warn);font-size:10px;">High Value</span></div>` : ''}
+      </td>
       <td class="cat">${escapeHtml(b.category)}</td>
       <td>${b.quantity}</td>
       <td>${typeBadge(b.type)}</td>
@@ -622,11 +693,12 @@ function render() {
       <td>${escapeHtml(b.ministry)}</td>
       <td>${escapeHtml(b.department)}</td>
       <td>${fmtDate(b.endDate)}</td>
+      <td>${viewLinks(b)}</td>
     </tr>
   `).join('');
 
   wrap.innerHTML = `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
-  wrap.querySelectorAll('th').forEach(th => {
+  wrap.querySelectorAll('th[data-key]').forEach(th => {
     th.addEventListener('click', () => {
       const k = th.dataset.key;
       if (state.sortKey === k) state.sortDir = state.sortDir === 'asc' ? 'desc' : 'asc';
@@ -647,19 +719,22 @@ function render() {
 function exportCSV() {
   if (state.filtered.length === 0) return;
   const rows = sortRows(state.filtered);
-  const header = ['Bid Number','Category','Quantity','Type','Bid/RA','Ministry','Department','End Date','Bid ID'];
+  const header = ['Bid Number','RA Number','Category','Quantity','Type','Bid/RA','High Value','Ministry','Department','End Date','Bid ID','RA ID'];
   const lines = [header.join(',')];
   for (const b of rows) {
     lines.push([
       b.bidNumber,
+      b.raNumber,
       b.category,
       b.quantity,
       b.type === 1 ? 'Service' : 'Goods',
       b.bidType === 2 ? 'RA' : 'Bid',
+      b.highValue ? 'Yes' : '',
       b.ministry,
       b.department,
       b.endDate,
       b.bidId,
+      b.raId,
     ].map(csvCell).join(','));
   }
   const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
@@ -695,7 +770,16 @@ document.getElementById('clearAdv').addEventListener('click', clearAdv);
 document.getElementById('prevBtn').addEventListener('click', () => { state.page--; render(); });
 document.getElementById('nextBtn').addEventListener('click', () => { state.page++; render(); });
 
-// open setup by default if no fetched data
+// toggle status dropdown visibility based on mode
+const bidstatusSel = document.getElementById('f_bidstatus');
+const statusWrap = document.getElementById('f_statusWrap');
+const syncStatusVisibility = () => {
+  statusWrap.style.display = bidstatusSel.value === 'bidrastatus' ? '' : 'none';
+};
+bidstatusSel.addEventListener('change', syncStatusVisibility);
+syncStatusVisibility();
+
+// open setup by default
 document.getElementById('setup').open = true;
 </script>
 </body>
