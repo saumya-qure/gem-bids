@@ -68,7 +68,7 @@ def _csrf_cookie_value(cookies):
     return m.group(1) if m else ""
 
 
-def _fetch_gem(filters, start):
+def _fetch_gem(filters, page):
     if not TOKENS["cookies"] or not TOKENS["csrf"]:
         return 401, {"error": "No tokens stored. Click the bookmarklet on the GeM page first."}
 
@@ -76,28 +76,33 @@ def _fetch_gem(filters, start):
     cookie_csrf = _csrf_cookie_value(TOKENS["cookies"])
     csrt = TOKENS["csrt"] or csrf[:16]
 
+    filter_obj = {
+        "bidStatusType": filters.get("bidStatusType", "ongoing_bids"),
+        "byType": filters.get("byType", "all"),
+        "highBidValue": filters.get("highBidValue", ""),
+        "byEndDate": {
+            "from": filters.get("dateFrom", ""),
+            "to": filters.get("dateTo", ""),
+        },
+        "sort": filters.get("sort", "Bid-End-Date-Latest"),
+    }
+    # GeM only includes byStatus when a specific status is selected.
+    by_status = filters.get("byStatus", "")
+    if by_status:
+        filter_obj["byStatus"] = by_status
+
     payload_obj = {
+        "page": int(page),
         "param": {
             "searchBid": filters.get("searchBid", ""),
             "searchType": "fullText",
         },
-        "filter": {
-            "bidStatusType": filters.get("bidStatusType", "bidrastatus"),
-            "byType": filters.get("byType", "all"),
-            "highBidValue": filters.get("highBidValue", ""),
-            "byEndDate": {
-                "from": filters.get("dateFrom", ""),
-                "to": filters.get("dateTo", ""),
-            },
-            "sort": filters.get("sort", "Bid-End-Date-Latest"),
-            "byStatus": filters.get("byStatus", ""),
-        },
+        "filter": filter_obj,
     }
 
     form = urllib.parse.urlencode({
         "payload": json.dumps(payload_obj, separators=(",", ":")),
         "csrf_bd_gem_nk": cookie_csrf,
-        "start": str(start),
     }).encode("utf-8")
 
     url = f"{GEM_URL}?csrt={csrt}"
@@ -115,7 +120,7 @@ def _fetch_gem(filters, start):
         "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
     )
 
-    print(f"[proxy] -> POST {url}", flush=True)
+    print(f"[proxy] -> POST page={page} {url}", flush=True)
     print(f"[proxy]    csrf header: {csrf[:20]}... ({len(csrf)} chars)", flush=True)
     print(f"[proxy]    cookie csrf_bd_gem_nk: {cookie_csrf[:20]}... ({len(cookie_csrf)} chars)", flush=True)
     print(f"[proxy]    cookie length: {len(TOKENS['cookies'])} chars", flush=True)
@@ -191,8 +196,8 @@ class Handler(BaseHTTPRequestHandler):
             _json(self, 200, {"ok": True, "saved_at": TOKENS["saved_at"]})
         elif self.path == "/gem-proxy":
             filters = body.get("filters", {})
-            start = int(body.get("start", 0))
-            status, data = _fetch_gem(filters, start)
+            page = int(body.get("page", 1))
+            status, data = _fetch_gem(filters, page)
             _json(self, status, data)
         else:
             _json(self, 404, {"error": "Not found"})

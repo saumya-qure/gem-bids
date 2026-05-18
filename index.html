@@ -229,15 +229,19 @@
       </div>
       <div>
         <label>Mode</label>
-        <select id="f_bidstatus">
-          <option value="ongoing">Ongoing Bids/RA</option>
-          <option value="bidrastatus">Bid/RA Status (awarded etc.)</option>
-        </select>
+        <div style="display:flex;flex-direction:column;gap:4px;padding-top:4px;">
+          <label style="display:flex;align-items:center;gap:6px;color:var(--text);font-size:13px;cursor:pointer;">
+            <input type="radio" name="f_mode" value="ongoing" checked style="width:auto;" /> Ongoing Bids/RA
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;color:var(--text);font-size:13px;cursor:pointer;">
+            <input type="radio" name="f_mode" value="status" style="width:auto;" /> Bid/RA Status
+          </label>
+        </div>
       </div>
       <div id="f_statusWrap" style="display:none;">
         <label>Status</label>
         <select id="f_status">
-          <option value="">All</option>
+          <option value="">Any</option>
           <option value="tech_evaluated">Technical Evaluated</option>
           <option value="fin_evaluated">Financial Evaluated</option>
           <option value="bid_awarded">Bid/RA Awarded</option>
@@ -507,12 +511,12 @@ async function fetchBids() {
   const statusEl = document.getElementById('fetchStatus');
   btn.disabled = true;
 
-  const mode = document.getElementById('f_bidstatus').value;
+  const mode = document.querySelector('input[name="f_mode"]:checked').value;
   const filters = {
     searchBid: document.getElementById('f_search').value.trim(),
-    byStatus: mode === 'bidrastatus' ? document.getElementById('f_status').value : '',
+    byStatus: mode === 'status' ? document.getElementById('f_status').value : '',
     byType: document.getElementById('f_type').value,
-    bidStatusType: mode,
+    bidStatusType: mode === 'status' ? 'bidrastatus' : 'ongoing_bids',
     highBidValue: document.getElementById('f_highValue').checked ? 'highValue' : '',
     dateFrom: document.getElementById('f_dateFrom').value,
     dateTo: document.getElementById('f_dateTo').value,
@@ -528,7 +532,7 @@ async function fetchBids() {
       const r = await fetch(`${PROXY}/gem-proxy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ filters, start: (p - 1) * 10 }),
+        body: JSON.stringify({ filters, page: p }),
       });
       const j = await r.json();
       if (!r.ok) {
@@ -547,11 +551,19 @@ async function fetchBids() {
         break;
       }
     }
-    state.fetched = all;
+    // Dedupe by bid id + ra id (band-aid if pagination is broken upstream).
+    const seen = new Set();
+    state.fetched = all.filter(b => {
+      const key = `${b.bidId}|${b.raId}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
     state.page = 0;
     populateAdvDropdowns();
     applyAdvFilters();
-    statusEl.textContent = `Fetched ${all.length} bid(s)`;
+    const dupCount = all.length - state.fetched.length;
+    statusEl.textContent = `Fetched ${state.fetched.length} bid(s)` + (dupCount > 0 ? ` (${dupCount} duplicate(s) hidden)` : '');
     document.getElementById('advPanel').style.display = '';
   } catch (e) {
     showError(`Fetch failed: ${e.message}`);
@@ -770,14 +782,13 @@ document.getElementById('clearAdv').addEventListener('click', clearAdv);
 document.getElementById('prevBtn').addEventListener('click', () => { state.page--; render(); });
 document.getElementById('nextBtn').addEventListener('click', () => { state.page++; render(); });
 
-// toggle status dropdown visibility based on mode
-const bidstatusSel = document.getElementById('f_bidstatus');
+// Show Status dropdown only when "Bid/RA Status" mode is selected.
 const statusWrap = document.getElementById('f_statusWrap');
-const syncStatusVisibility = () => {
-  statusWrap.style.display = bidstatusSel.value === 'bidrastatus' ? '' : 'none';
-};
-bidstatusSel.addEventListener('change', syncStatusVisibility);
-syncStatusVisibility();
+document.querySelectorAll('input[name="f_mode"]').forEach(r => {
+  r.addEventListener('change', () => {
+    statusWrap.style.display = r.value === 'status' && r.checked ? '' : 'none';
+  });
+});
 
 // open setup by default
 document.getElementById('setup').open = true;
