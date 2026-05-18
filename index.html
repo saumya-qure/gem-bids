@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>GeM Bid Explorer</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161a22;
+    --panel-2: #1d222c;
+    --border: #2a2f3a;
+    --text: #e6e9ef;
+    --muted: #8b93a7;
+    --accent: #4f8cff;
+    --accent-2: #3b6fd1;
+    --ok: #3ecf8e;
+    --bad: #ef4444;
+    --warn: #f5a524;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.45;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 22px;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+    position: sticky; top: 0; z-index: 10;
+  }
+  header h1 { margin: 0; font-size: 17px; font-weight: 600; }
+  .status { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--bad); }
+  .dot.ok { background: var(--ok); }
+  .dot.warn { background: var(--warn); }
+  main { padding: 18px 22px 60px; max-width: 1400px; margin: 0 auto; }
+  details {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 16px;
+  }
+  details > summary {
+    cursor: pointer;
+    padding: 12px 16px;
+    font-weight: 500;
+    user-select: none;
+  }
+  details[open] > summary { border-bottom: 1px solid var(--border); }
+  .setup-body { padding: 14px 16px; }
+  .setup-body p { margin: 6px 0; color: var(--muted); }
+  .setup-body ol { padding-left: 22px; margin: 8px 0; color: var(--muted); }
+  .setup-body li { margin: 4px 0; }
+  .bookmarklet {
+    display: inline-block;
+    padding: 8px 14px;
+    background: var(--accent);
+    color: white;
+    border-radius: 6px;
+    text-decoration: none;
+    font-weight: 600;
+    margin: 6px 0;
+  }
+  .bookmarklet:hover { background: var(--accent-2); }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 14px;
+  }
+  .panel h2 {
+    margin: 0 0 12px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 10px;
+  }
+  label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  input, select {
+    width: 100%;
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 13px;
+    font-family: inherit;
+  }
+  input:focus, select:focus { outline: none; border-color: var(--accent); }
+  .actions { display: flex; gap: 10px; align-items: center; margin-top: 14px; flex-wrap: wrap; }
+  button {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 9px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  button:hover { background: var(--accent-2); }
+  button:disabled { background: #444; cursor: not-allowed; opacity: 0.6; }
+  button.secondary { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); }
+  button.secondary:hover { background: #262c38; }
+  .meta { color: var(--muted); font-size: 12px; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    font-size: 13px;
+  }
+  thead { background: var(--panel-2); }
+  th, td {
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  th {
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    font-size: 11px;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+  }
+  th .arrow { color: var(--accent); margin-left: 4px; }
+  tbody tr:hover { background: rgba(79, 140, 255, 0.05); }
+  td.bid-num { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; }
+  td.cat { max-width: 360px; }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    background: var(--panel-2);
+    color: var(--muted);
+  }
+  .badge.goods { background: rgba(62, 207, 142, 0.15); color: var(--ok); }
+  .badge.service { background: rgba(79, 140, 255, 0.15); color: var(--accent); }
+  .badge.ra { background: rgba(245, 165, 36, 0.15); color: var(--warn); }
+
+  .empty {
+    padding: 60px 20px;
+    text-align: center;
+    color: var(--muted);
+  }
+  .pager {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 14px;
+    gap: 10px;
+  }
+  .pager .info { color: var(--muted); font-size: 12px; }
+  .err {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #fca5a5;
+    padding: 10px 14px;
+    border-radius: 6px;
+    margin-bottom: 14px;
+    font-size: 13px;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<header>
+  <h1>GeM Bid Explorer</h1>
+  <div class="status">
+    <span id="proxyDot" class="dot"></span>
+    <span id="proxyText">Checking proxy…</span>
+    <span id="tokenText"></span>
+  </div>
+</header>
+
+<main>
+  <details id="setup">
+    <summary>Setup (one-time)</summary>
+    <div class="setup-body">
+      <ol>
+        <li>Run the proxy on your machine: <code>python3 gem_proxy.py</code></li>
+        <li>Drag this button to your bookmarks bar:
+          <br /><a id="bookmarkletLink" class="bookmarklet" href="#">GeM → Proxy</a>
+        </li>
+        <li>Open <a href="https://bidplus.gem.gov.in/all-bids" target="_blank">bidplus.gem.gov.in/all-bids</a>, log in if needed, then click the bookmarklet. You should see a green toast.</li>
+        <li>Come back here — the dot in the top right should turn green. Tokens last a few hours; re-click the bookmarklet when they expire.</li>
+      </ol>
+    </div>
+  </details>
+
+  <div class="panel">
+    <h2>API Filters (sent to GeM)</h2>
+    <div class="grid">
+      <div>
+        <label>Search text</label>
+        <input id="f_search" placeholder="e.g. laptop, vehicle…" />
+      </div>
+      <div>
+        <label>Status</label>
+        <select id="f_status">
+          <option value="">All</option>
+          <option value="bid_to_open">Live (not yet opened)</option>
+          <option value="bid_under_evaluation">Under evaluation</option>
+          <option value="bid_awarded">Awarded</option>
+          <option value="bid_cancelled">Cancelled</option>
+        </select>
+      </div>
+      <div>
+        <label>Type</label>
+        <select id="f_type">
+          <option value="all">All</option>
+          <option value="goods">Goods</option>
+          <option value="service">Services</option>
+        </select>
+      </div>
+      <div>
+        <label>Bid / RA</label>
+        <select id="f_bidstatus">
+          <option value="bidrastatus">Both</option>
+          <option value="bidstatus">Bid only</option>
+          <option value="rastatus">RA only</option>
+        </select>
+      </div>
+      <div>
+        <label>End date from</label>
+        <input id="f_dateFrom" type="date" />
+      </div>
+      <div>
+        <label>End date to</label>
+        <input id="f_dateTo" type="date" />
+      </div>
+      <div>
+        <label>Sort</label>
+        <select id="f_sort">
+          <option value="Bid-End-Date-Latest">End date — latest first</option>
+          <option value="Bid-End-Date-Oldest">End date — oldest first</option>
+          <option value="Bid-Start-Date-Latest">Start date — latest</option>
+          <option value="Bid-Start-Date-Oldest">Start date — oldest</option>
+        </select>
+      </div>
+      <div>
+        <label>Max pages (10/page)</label>
+        <input id="f_maxPages" type="number" min="1" max="100" value="5" />
+      </div>
+    </div>
+    <div class="actions">
+      <button id="fetchBtn">Fetch bids</button>
+      <span id="fetchStatus" class="meta"></span>
+    </div>
+  </div>
+
+  <div class="panel" id="advPanel" style="display:none;">
+    <h2>Advanced Filters (on fetched results)</h2>
+    <div class="grid">
+      <div>
+        <label>Text search (any field)</label>
+        <input id="a_text" placeholder="filter by any text…" />
+      </div>
+      <div>
+        <label>Ministry</label>
+        <select id="a_ministry"><option value="">All</option></select>
+      </div>
+      <div>
+        <label>Department</label>
+        <select id="a_dept"><option value="">All</option></select>
+      </div>
+      <div>
+        <label>Category</label>
+        <select id="a_cat"><option value="">All</option></select>
+      </div>
+      <div>
+        <label>Type</label>
+        <select id="a_type">
+          <option value="">All</option>
+          <option value="0">Goods</option>
+          <option value="1">Service</option>
+        </select>
+      </div>
+      <div>
+        <label>Min quantity</label>
+        <input id="a_minQty" type="number" min="0" />
+      </div>
+    </div>
+    <div class="actions">
+      <button class="secondary" id="clearAdv">Clear advanced filters</button>
+      <button class="secondary" id="exportBtn">Export CSV</button>
+      <span id="resultMeta" class="meta"></span>
+    </div>
+  </div>
+
+  <div id="errorBox"></div>
+
+  <div id="tableWrap"></div>
+  <div id="pager" class="pager" style="display:none;">
+    <span class="info" id="pageInfo"></span>
+    <div>
+      <button class="secondary" id="prevBtn">Prev</button>
+      <button class="secondary" id="nextBtn">Next</button>
+    </div>
+  </div>
+</main>
+
+<script>
+const PROXY = 'http://127.0.0.1:7432';
+const PAGE_SIZE = 25;
+
+const state = {
+  fetched: [],        // all results from the API
+  filtered: [],       // after advanced filters
+  page: 0,
+  sortKey: 'endDate',
+  sortDir: 'desc',
+};
+
+// ---------- proxy status ----------
+async function pingProxy() {
+  const dot = document.getElementById('proxyDot');
+  const text = document.getElementById('proxyText');
+  const tokenText = document.getElementById('tokenText');
+  try {
+    const r = await fetch(`${PROXY}/ping`, { cache: 'no-store' });
+    const j = await r.json();
+    dot.className = 'dot ok';
+    text.textContent = 'Proxy connected';
+    if (j.has_tokens) {
+      const t = await (await fetch(`${PROXY}/get-tokens`)).json();
+      tokenText.textContent = `· tokens loaded ${t.saved_at ? '(' + t.saved_at + ')' : ''}`;
+    } else {
+      dot.className = 'dot warn';
+      tokenText.textContent = '· no tokens — click the bookmarklet';
+    }
+  } catch (e) {
+    dot.className = 'dot';
+    text.textContent = 'Proxy not running';
+    tokenText.textContent = '· start with: python3 gem_proxy.py';
+  }
+}
+setInterval(pingProxy, 4000);
+pingProxy();
+
+// ---------- bookmarklet ----------
+const bookmarkletCode = `(function(){
+  try {
+    var cookies = document.cookie;
+    var csrf = window.csrf_token || window.csrfToken || '';
+    if (!csrf) {
+      var m = cookies.match(/csrf_gem_cookie=([^;]+)/);
+      if (m) csrf = decodeURIComponent(m[1]);
+    }
+    if (!csrf || csrf.length < 40) {
+      var scripts = document.getElementsByTagName('script');
+      for (var i = 0; i < scripts.length; i++) {
+        var s = scripts[i].textContent || '';
+        var hex = s.match(/[a-f0-9]{80,120}/i);
+        if (hex) { csrf = hex[0]; break; }
+        var quoted = s.match(/['"]([a-f0-9]{80,120})['"]/i);
+        if (quoted) { csrf = quoted[1]; break; }
+      }
+    }
+    var url = 'http://127.0.0.1:7432/save-tokens';
+    fetch(url, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({cookies: cookies, csrf: csrf})
+    }).then(function(r){ return r.json(); }).then(function(j){
+      var t = document.createElement('div');
+      t.textContent = '✓ Tokens sent to proxy (csrf ' + csrf.length + ' chars)';
+      t.style.cssText = 'position:fixed;top:20px;right:20px;background:#3ecf8e;color:#000;padding:12px 18px;border-radius:6px;font:600 14px sans-serif;z-index:99999;box-shadow:0 4px 12px rgba(0,0,0,0.3)';
+      document.body.appendChild(t);
+      setTimeout(function(){ t.remove(); }, 3000);
+    }).catch(function(e){
+      alert('Could not reach proxy at 127.0.0.1:7432. Is it running? (' + e + ')');
+    });
+  } catch(e) { alert('Bookmarklet error: ' + e); }
+})();`;
+
+document.getElementById('bookmarkletLink').href =
+  'javascript:' + encodeURIComponent(bookmarkletCode.replace(/\s+/g, ' '));
+
+// ---------- helpers ----------
+function g(doc, key, fallback = '') {
+  const v = doc[key];
+  if (Array.isArray(v)) return v[0] ?? fallback;
+  return v ?? fallback;
+}
+
+function normalize(doc) {
+  return {
+    bidNumber: g(doc, 'b_bid_number'),
+    category: g(doc, 'bd_category_name') || g(doc, 'b_category_name'),
+    quantity: Number(g(doc, 'b_total_quantity', 0)) || 0,
+    type: Number(g(doc, 'b_type', 0)),       // 0 = goods, 1 = service
+    bidType: Number(g(doc, 'b_bid_type', 0)),// 1 = bid, 2 = RA
+    ministry: g(doc, 'ba_official_details_minName'),
+    department: g(doc, 'ba_official_details_deptName'),
+    endDate: g(doc, 'final_end_date_sort'),
+    bidId: g(doc, 'b_id'),
+  };
+}
+
+function fmtDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d)) return iso;
+  return d.toISOString().slice(0, 16).replace('T', ' ') + 'Z';
+}
+
+function typeBadge(t) {
+  return t === 1
+    ? '<span class="badge service">Service</span>'
+    : '<span class="badge goods">Goods</span>';
+}
+
+function bidTypeBadge(t) {
+  return t === 2 ? '<span class="badge ra">RA</span>' : '<span class="badge">Bid</span>';
+}
+
+function showError(msg) {
+  document.getElementById('errorBox').innerHTML =
+    `<div class="err">${msg}</div>`;
+}
+function clearError() {
+  document.getElementById('errorBox').innerHTML = '';
+}
+
+// ---------- fetch ----------
+async function fetchBids() {
+  clearError();
+  const btn = document.getElementById('fetchBtn');
+  const statusEl = document.getElementById('fetchStatus');
+  btn.disabled = true;
+
+  const typeVal = document.getElementById('f_type').value; // all/goods/service
+  const filters = {
+    searchBid: document.getElementById('f_search').value.trim(),
+    byStatus: document.getElementById('f_status').value,
+    byType: typeVal,
+    bidStatusType: document.getElementById('f_bidstatus').value,
+    dateFrom: document.getElementById('f_dateFrom').value,
+    dateTo: document.getElementById('f_dateTo').value,
+    sort: document.getElementById('f_sort').value,
+  };
+  const maxPages = Math.max(1, Math.min(100, Number(document.getElementById('f_maxPages').value) || 5));
+
+  const all = [];
+  try {
+    for (let p = 0; p < maxPages; p++) {
+      statusEl.textContent = `Fetching page ${p + 1}/${maxPages}…`;
+      const r = await fetch(`${PROXY}/gem-proxy`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filters, start: p * 10 }),
+      });
+      const j = await r.json();
+      if (!r.ok) {
+        throw new Error(j.error || `HTTP ${r.status}`);
+      }
+      const docs = j?.response?.response?.docs || [];
+      if (docs.length === 0) {
+        statusEl.textContent = `Done — no more results after page ${p}`;
+        break;
+      }
+      all.push(...docs.map(normalize));
+      if (docs.length < 10) {
+        statusEl.textContent = `Done — last page had ${docs.length}`;
+        break;
+      }
+    }
+    state.fetched = all;
+    state.page = 0;
+    populateAdvDropdowns();
+    applyAdvFilters();
+    statusEl.textContent = `Fetched ${all.length} bid(s)`;
+    document.getElementById('advPanel').style.display = '';
+  } catch (e) {
+    showError(`Fetch failed: ${e.message}`);
+    statusEl.textContent = '';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ---------- advanced filters ----------
+function populateAdvDropdowns() {
+  const fill = (id, vals) => {
+    const sel = document.getElementById(id);
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">All</option>' +
+      [...vals].sort().map(v => `<option value="${escapeAttr(v)}">${escapeHtml(v)}</option>`).join('');
+    sel.value = cur;
+  };
+  const min = new Set(), dep = new Set(), cat = new Set();
+  for (const b of state.fetched) {
+    if (b.ministry) min.add(b.ministry);
+    if (b.department) dep.add(b.department);
+    if (b.category) cat.add(b.category);
+  }
+  fill('a_ministry', min);
+  fill('a_dept', dep);
+  fill('a_cat', cat);
+}
+
+function applyAdvFilters() {
+  const text = document.getElementById('a_text').value.trim().toLowerCase();
+  const min = document.getElementById('a_ministry').value;
+  const dep = document.getElementById('a_dept').value;
+  const cat = document.getElementById('a_cat').value;
+  const typ = document.getElementById('a_type').value;
+  const minQty = Number(document.getElementById('a_minQty').value) || 0;
+
+  state.filtered = state.fetched.filter(b => {
+    if (min && b.ministry !== min) return false;
+    if (dep && b.department !== dep) return false;
+    if (cat && b.category !== cat) return false;
+    if (typ !== '' && String(b.type) !== typ) return false;
+    if (minQty && b.quantity < minQty) return false;
+    if (text) {
+      const hay = `${b.bidNumber} ${b.category} ${b.ministry} ${b.department}`.toLowerCase();
+      if (!hay.includes(text)) return false;
+    }
+    return true;
+  });
+  state.page = 0;
+  render();
+}
+
+function clearAdv() {
+  ['a_text', 'a_minQty'].forEach(id => document.getElementById(id).value = '');
+  ['a_ministry', 'a_dept', 'a_cat', 'a_type'].forEach(id => document.getElementById(id).value = '');
+  applyAdvFilters();
+}
+
+// ---------- render ----------
+const COLS = [
+  { key: 'bidNumber', label: 'Bid Number' },
+  { key: 'category',  label: 'Category' },
+  { key: 'quantity',  label: 'Qty' },
+  { key: 'type',      label: 'Type' },
+  { key: 'bidType',   label: 'Bid/RA' },
+  { key: 'ministry',  label: 'Ministry' },
+  { key: 'department',label: 'Department' },
+  { key: 'endDate',   label: 'End Date' },
+];
+
+function sortRows(rows) {
+  const k = state.sortKey;
+  const dir = state.sortDir === 'asc' ? 1 : -1;
+  return [...rows].sort((a, b) => {
+    const av = a[k], bv = b[k];
+    if (av == null && bv == null) return 0;
+    if (av == null) return 1;
+    if (bv == null) return -1;
+    if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir;
+    return String(av).localeCompare(String(bv)) * dir;
+  });
+}
+
+function render() {
+  const wrap = document.getElementById('tableWrap');
+  const meta = document.getElementById('resultMeta');
+  const pager = document.getElementById('pager');
+
+  if (state.fetched.length === 0) {
+    wrap.innerHTML = '';
+    pager.style.display = 'none';
+    return;
+  }
+  if (state.filtered.length === 0) {
+    wrap.innerHTML = '<div class="empty">No rows match the advanced filters.</div>';
+    pager.style.display = 'none';
+    meta.textContent = `0 of ${state.fetched.length} fetched`;
+    return;
+  }
+
+  const sorted = sortRows(state.filtered);
+  const total = sorted.length;
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  if (state.page >= pages) state.page = pages - 1;
+  const slice = sorted.slice(state.page * PAGE_SIZE, (state.page + 1) * PAGE_SIZE);
+
+  const head = COLS.map(c => {
+    const arrow = state.sortKey === c.key
+      ? `<span class="arrow">${state.sortDir === 'asc' ? '↑' : '↓'}</span>`
+      : '';
+    return `<th data-key="${c.key}">${c.label}${arrow}</th>`;
+  }).join('');
+
+  const body = slice.map(b => `
+    <tr>
+      <td class="bid-num">${escapeHtml(b.bidNumber)}</td>
+      <td class="cat">${escapeHtml(b.category)}</td>
+      <td>${b.quantity}</td>
+      <td>${typeBadge(b.type)}</td>
+      <td>${bidTypeBadge(b.bidType)}</td>
+      <td>${escapeHtml(b.ministry)}</td>
+      <td>${escapeHtml(b.department)}</td>
+      <td>${fmtDate(b.endDate)}</td>
+    </tr>
+  `).join('');
+
+  wrap.innerHTML = `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+  wrap.querySelectorAll('th').forEach(th => {
+    th.addEventListener('click', () => {
+      const k = th.dataset.key;
+      if (state.sortKey === k) state.sortDir = state.sortDir === 'asc' ? 'desc' : 'asc';
+      else { state.sortKey = k; state.sortDir = 'asc'; }
+      render();
+    });
+  });
+
+  meta.textContent = `${total} of ${state.fetched.length} fetched`;
+  pager.style.display = '';
+  document.getElementById('pageInfo').textContent =
+    `Page ${state.page + 1} of ${pages} · showing ${slice.length} row(s)`;
+  document.getElementById('prevBtn').disabled = state.page === 0;
+  document.getElementById('nextBtn').disabled = state.page >= pages - 1;
+}
+
+// ---------- CSV export ----------
+function exportCSV() {
+  if (state.filtered.length === 0) return;
+  const rows = sortRows(state.filtered);
+  const header = ['Bid Number','Category','Quantity','Type','Bid/RA','Ministry','Department','End Date','Bid ID'];
+  const lines = [header.join(',')];
+  for (const b of rows) {
+    lines.push([
+      b.bidNumber,
+      b.category,
+      b.quantity,
+      b.type === 1 ? 'Service' : 'Goods',
+      b.bidType === 2 ? 'RA' : 'Bid',
+      b.ministry,
+      b.department,
+      b.endDate,
+      b.bidId,
+    ].map(csvCell).join(','));
+  }
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  const ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+  a.download = `gem-bids-${ts}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function csvCell(v) {
+  const s = String(v ?? '');
+  if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+}
+function escapeAttr(s) {
+  return escapeHtml(s).replace(/'/g, '&#39;');
+}
+
+// ---------- events ----------
+document.getElementById('fetchBtn').addEventListener('click', fetchBids);
+document.getElementById('exportBtn').addEventListener('click', exportCSV);
+document.getElementById('clearAdv').addEventListener('click', clearAdv);
+['a_text','a_ministry','a_dept','a_cat','a_type','a_minQty'].forEach(id => {
+  document.getElementById(id).addEventListener('input', applyAdvFilters);
+  document.getElementById(id).addEventListener('change', applyAdvFilters);
+});
+document.getElementById('prevBtn').addEventListener('click', () => { state.page--; render(); });
+document.getElementById('nextBtn').addEventListener('click', () => { state.page++; render(); });
+
+// open setup by default if no fetched data
+document.getElementById('setup').open = true;
+</script>
+</body>
+</html>
